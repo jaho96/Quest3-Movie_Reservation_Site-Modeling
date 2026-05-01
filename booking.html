@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>예매하기 - CineBook</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <a href="index.html" class="logo">🎬 CineBook</a>
+    <nav>
+      <a href="index.html">영화</a>
+      <a href="booking.html" class="active">예매</a>
+    </nav>
+    <div class="header-actions">
+      <button class="btn-outline" onclick="location.href='index.html'">로그인</button>
+    </div>
+  </div>
+</header>
+
+<div class="section">
+  <!-- STEPS -->
+  <div class="booking-steps">
+    <div class="step" id="step1">① 영화 선택</div>
+    <div class="step" id="step2">② 극장·날짜·시간</div>
+    <div class="step" id="step3">③ 좌석 선택</div>
+    <div class="step" id="step4">④ 결제</div>
+  </div>
+
+  <!-- STEP 1: Movie Only -->
+  <div id="stepView1">
+    <div class="booking-layout">
+      <div class="booking-panel">
+        <h3>🎬 영화를 선택해주세요</h3>
+        <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(140px,1fr)); gap:12px;" id="movieSelectGrid"></div>
+      </div>
+
+      <div class="summary-panel">
+        <h3>선택 정보</h3>
+        <div id="summaryStep1">
+          <p style="color:var(--text-muted); font-size:13px;">영화를 선택해주세요.</p>
+        </div>
+        <button class="btn-next" id="btnStep1Next" onclick="goStep(2)" disabled>다음 단계</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 2: Theater + Date + Time -->
+  <div id="stepView2" style="display:none;">
+    <div class="booking-layout">
+      <div style="display:flex; flex-direction:column; gap:20px;">
+
+        <!-- Theater Select -->
+        <div class="booking-panel">
+          <h3>🏢 극장 선택</h3>
+          <div class="region-tabs">
+            <button class="region-btn active" onclick="filterTheaters('전체', this)">전체</button>
+            <button class="region-btn" onclick="filterTheaters('서울', this)">서울</button>
+            <button class="region-btn" onclick="filterTheaters('부산', this)">부산</button>
+            <button class="region-btn" onclick="filterTheaters('대구', this)">대구</button>
+            <button class="region-btn" onclick="filterTheaters('인천', this)">인천</button>
+          </div>
+          <div class="theater-list" id="theaterSelectList"></div>
+        </div>
+
+        <!-- Date Select -->
+        <div class="booking-panel">
+          <h3>📅 날짜 선택</h3>
+          <div class="date-grid" id="dateGrid"></div>
+        </div>
+
+        <!-- Time Select -->
+        <div class="booking-panel">
+          <h3>🕐 시간 선택</h3>
+          <div class="schedule-grid" id="schedGrid">
+            <p style="color:var(--text-muted); font-size:13px; grid-column:1/-1;">극장과 날짜를 먼저 선택해주세요.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="summary-panel">
+        <h3>선택 정보</h3>
+        <div id="summaryStep2"></div>
+        <button class="btn-next" id="btnStep2Next" onclick="goStep(3)" disabled>다음 단계</button>
+        <button class="btn-outline" onclick="goStep(1)" style="display:block; width:100%; padding:12px; margin-top:8px; text-align:center;">이전</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 3: Seat Select -->
+  <div id="stepView3" style="display:none;">
+    <div class="booking-layout">
+      <div class="booking-panel">
+        <h3>💺 좌석 선택</h3>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+          <div style="display:flex; gap:16px;">
+            <div>
+              <div class="form-label" style="font-size:13px; margin-bottom:6px;">관람 유형</div>
+              <div class="viewer-type-grid" style="grid-template-columns: repeat(3,auto); gap:8px;">
+                <button class="viewer-btn selected" data-type="성인" data-price="14000" onclick="selectViewerType(this)">성인<br><span style="font-size:11px;">14,000원</span></button>
+                <button class="viewer-btn" data-type="청소년" data-price="11000" onclick="selectViewerType(this)">청소년<br><span style="font-size:11px;">11,000원</span></button>
+                <button class="viewer-btn" data-type="노인" data-price="9000" onclick="selectViewerType(this)">노인<br><span style="font-size:11px;">9,000원</span></button>
+              </div>
+            </div>
+          </div>
+          <div style="text-align:right; font-size:13px; color:var(--text-secondary);">
+            선택된 좌석: <strong id="selectedCount" style="color:var(--accent);">0</strong>개
+          </div>
+        </div>
+
+        <div class="seat-map-container">
+          <div class="screen-label">SCREEN</div>
+          <div class="seat-grid" id="seatGrid"></div>
+        </div>
+
+        <div class="seat-legend">
+          <div class="legend-item"><div class="legend-box" style="background:var(--bg-surface);"></div> 선택 가능</div>
+          <div class="legend-item"><div class="legend-box" style="background:var(--accent);"></div> 선택</div>
+          <div class="legend-item"><div class="legend-box" style="background:var(--bg-dark); opacity:0.4;"></div> 매진</div>
+          <div class="legend-item"><div class="legend-box" style="border-color:#ffd700;"></div> 특별석</div>
+        </div>
+      </div>
+
+      <div class="summary-panel">
+        <h3>선택 정보</h3>
+        <div id="summaryStep3"></div>
+        <hr class="summary-divider">
+        <div class="summary-total">
+          <span>총 결제금액</span>
+          <span class="total-price" id="totalPrice">0원</span>
+        </div>
+        <button class="btn-next" id="btnStep3Next" onclick="goPayment()" disabled>결제하기</button>
+        <button class="btn-outline" onclick="goStep(2)" style="display:block; width:100%; padding:12px; margin-top:8px; text-align:center;">이전</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-logo">🎬 CineBook</div>
+  <p>© 2026 CineBook. All rights reserved.</p>
+</footer>
+
+<script src="js/data.js"></script>
+<script>
+  const params = new URLSearchParams(location.search);
+  let session = {
+    movieId: parseInt(params.get('movieId')) || null,
+    scheduleId: parseInt(params.get('scheduleId')) || null,
+    theaterId: null,
+    date: null,
+    schedule: null,
+    seats: [],
+    viewerType: '성인',
+    price: 14000
+  };
+
+  // Pre-fill from scheduleId
+  if (session.scheduleId) {
+    const s = DB.schedules.find(s => s.id === session.scheduleId);
+    if (s) {
+      session.theaterId = s.theaterId;
+      session.date = s.date;
+      session.schedule = s;
+    }
+  }
+
+  function init() {
+    renderMovieGrid();
+    setStep(1);
+    if (session.movieId) {
+      const el = document.querySelector(`.movie-select-item[data-id="${session.movieId}"]`);
+      if (el) selectMovie(session.movieId, el);
+    }
+  }
+
+  function setStep(n) {
+    [1,2,3,4].forEach(i => {
+      const s = document.getElementById('step'+i);
+      s.classList.toggle('active', i === n);
+      s.classList.toggle('done', i < n);
+    });
+    [1,2,3].forEach(i => {
+      document.getElementById('stepView'+i).style.display = i === n ? 'block' : 'none';
+    });
+  }
+
+  function goStep(n) {
+    setStep(n);
+    if (n === 2) {
+      renderTheaterList();
+      renderDates();
+      updateStep2Summary();
+      renderSchedules();
+    }
+    if (n === 3) { renderSeatMap(); updateStep3Summary(); }
+  }
+
+  /* ── STEP 1 ── */
+  function renderMovieGrid() {
+    document.getElementById('movieSelectGrid').innerHTML = DB.movies.map(m => `
+      <div class="movie-select-item" data-id="${m.id}" onclick="selectMovie(${m.id}, this)"
+        style="border:2px solid var(--border); border-radius:8px; overflow:hidden; cursor:pointer; transition:all 0.2s;">
+        <div style="height:120px; background:var(--bg-surface); display:flex; align-items:center; justify-content:center; font-size:30px;">🎬</div>
+        <div style="padding:8px; font-size:12px; font-weight:600; text-align:center;">${m.title}</div>
+      </div>
+    `).join('');
+  }
+
+  function selectMovie(id, el) {
+    session.movieId = id;
+    session.schedule = null;
+    session.seats = [];
+    document.querySelectorAll('.movie-select-item').forEach(e => {
+      e.style.borderColor = 'var(--border)';
+      e.style.background = '';
+    });
+    el.style.borderColor = 'var(--accent)';
+    el.style.background = 'rgba(233,69,96,0.08)';
+    updateStep1Summary();
+    checkStep1();
+  }
+
+  function filterTheaters(region, btn) {
+    document.querySelectorAll('.region-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderTheaterList(region);
+  }
+
+  function renderTheaterList(region = '전체') {
+    const list = region === '전체' ? DB.theaters : DB.theaters.filter(t => t.region === region);
+    document.getElementById('theaterSelectList').innerHTML = list.map(t => `
+      <div class="theater-item" data-id="${t.id}" onclick="selectTheater(${t.id}, this)">
+        <div>
+          <div class="theater-name">${t.name}</div>
+          <div class="theater-region">${t.region} · 상영관 ${t.screenCount}개</div>
+        </div>
+        <span style="font-size:12px; color:var(--text-muted);">${t.status}</span>
+      </div>
+    `).join('');
+    // Re-select if already chosen
+    if (session.theaterId) {
+      document.querySelectorAll('.theater-item').forEach(el => {
+        if (parseInt(el.dataset.id) === session.theaterId) el.classList.add('selected');
+      });
+    }
+  }
+
+  function selectTheater(id, el) {
+    session.theaterId = id;
+    session.schedule = null;
+    session.seats = [];
+    document.querySelectorAll('.theater-item').forEach(e => e.classList.remove('selected'));
+    el.classList.add('selected');
+    updateStep1Summary();
+    checkStep1();
+    renderSchedules();
+  }
+
+  function checkStep1() {
+    document.getElementById('btnStep1Next').disabled = !session.movieId;
+  }
+
+  function updateStep1Summary() {
+    const movie = DB.movies.find(m => m.id === session.movieId);
+    if (movie) {
+      document.getElementById('summaryStep1').innerHTML = `
+        <div class="summary-rows">
+          <div class="summary-row"><span class="label">영화</span><span class="value">${movie.title}</span></div>
+          <div class="summary-row"><span class="label">장르</span><span class="value">${movie.genre}</span></div>
+          <div class="summary-row"><span class="label">등급</span><span class="value">${movie.rating}</span></div>
+          <div class="summary-row"><span class="label">러닝타임</span><span class="value">${movie.runtime}분</span></div>
+        </div>`;
+    } else {
+      document.getElementById('summaryStep1').innerHTML = '<p style="color:var(--text-muted); font-size:13px;">영화를 선택해주세요.</p>';
+    }
+  }
+
+  /* ── STEP 2 ── */
+  function renderDates() {
+    const today = new Date('2026-05-01');
+    const days = ['일','월','화','수','목','금','토'];
+    const dates = Array.from({length:14}, (_,i) => {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      return d;
+    });
+    document.getElementById('dateGrid').innerHTML = dates.map((d,i) => {
+      const str = d.toISOString().split('T')[0];
+      return `<button class="date-btn ${session.date===str?'selected':''}" onclick="selectDate('${str}', this)">
+        <span class="day-num">${d.getDate()}</span>
+        <span class="day-name">${days[d.getDay()]}</span>
+      </button>`;
+    }).join('');
+  }
+
+  function selectDate(date, btn) {
+    session.date = date;
+    session.schedule = null;
+    session.seats = [];
+    document.querySelectorAll('#dateGrid .date-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    renderSchedules();
+    updateStep2Summary();
+  }
+
+  function renderSchedules() {
+    if (!session.theaterId || !session.date) {
+      document.getElementById('schedGrid').innerHTML = '<p style="color:var(--text-muted); font-size:13px; grid-column:1/-1;">극장과 날짜를 먼저 선택해주세요.</p>';
+      return;
+    }
+    const scheds = DB.schedules.filter(s =>
+      s.movieId === session.movieId &&
+      s.theaterId === session.theaterId &&
+      s.date === session.date
+    );
+    if (!scheds.length) {
+      document.getElementById('schedGrid').innerHTML = '<p style="color:var(--text-muted); font-size:13px; grid-column:1/-1;">해당 날짜에 상영 일정이 없습니다.</p>';
+      return;
+    }
+    document.getElementById('schedGrid').innerHTML = scheds.map(s => {
+      const screen = DB.screens.find(sc => sc.id === s.screenId);
+      return `
+        <div class="schedule-item ${session.schedule?.id===s.id?'selected':''}" onclick="selectSchedule(${s.id}, this)">
+          <div class="sch-time">${s.startTime}</div>
+          <div class="sch-end">~ ${s.endTime}</div>
+          <div class="sch-screen">${screen?.classification || ''} ${screen?.number || ''}관</div>
+          ${s.timeSlot !== '일반' ? `<div class="sch-slot">${s.timeSlot}</div>` : ''}
+        </div>
+      `;
+    }).join('');
+  }
+
+  function selectSchedule(id, el) {
+    session.schedule = DB.schedules.find(s => s.id === id);
+    session.seats = [];
+    document.querySelectorAll('.schedule-item').forEach(e => e.classList.remove('selected'));
+    el.classList.add('selected');
+    document.getElementById('btnStep2Next').disabled = false;
+    updateStep2Summary();
+  }
+
+  function updateStep2Summary() {
+    const movie = DB.movies.find(m => m.id === session.movieId);
+    const theater = DB.theaters.find(t => t.id === session.theaterId);
+    let html = '<div class="summary-rows">';
+    if (movie) html += `<div class="summary-row"><span class="label">영화</span><span class="value">${movie.title}</span></div>`;
+    if (theater) html += `<div class="summary-row"><span class="label">극장</span><span class="value">${theater.name}</span></div>`;
+    if (session.date) html += `<div class="summary-row"><span class="label">날짜</span><span class="value">${session.date}</span></div>`;
+    if (session.schedule) html += `<div class="summary-row"><span class="label">시간</span><span class="value">${session.schedule.startTime} ~ ${session.schedule.endTime}</span></div>`;
+    html += '</div>';
+    document.getElementById('summaryStep2').innerHTML = html;
+  }
+
+  /* ── STEP 3 ── */
+  function renderSeatMap() {
+    const screen = DB.screens.find(s => s.id === session.schedule?.screenId);
+    if (!screen) return;
+
+    const rows = ['A','B','C','D','E','F','G','H','I','J'];
+    const cols = 10;
+    const reservedSeats = new Set(['B3','C5','D2','D7','E1','F4','F5','G8','H3','H9']);
+    const specialRows = new Set(['A']);
+
+    let html = '';
+    rows.forEach(row => {
+      html += `<div class="seat-row"><div class="seat-row-label">${row}</div>`;
+      for (let c = 1; c <= cols; c++) {
+        const seatId = row + c;
+        const isReserved = reservedSeats.has(seatId);
+        const isSpecial = specialRows.has(row);
+        const isSelected = session.seats.includes(seatId);
+        let cls = 'seat';
+        if (isSelected) cls += ' selected';
+        else if (isReserved) cls += ' reserved';
+        if (isSpecial) cls += ' special';
+        html += `<div class="${cls}" data-seat="${seatId}" onclick="toggleSeat('${seatId}', this, ${isReserved})">${c}</div>`;
+      }
+      html += '</div>';
+    });
+
+    document.getElementById('seatGrid').innerHTML = html;
+    updateSeatSummary();
+  }
+
+  function toggleSeat(seatId, el, reserved) {
+    if (reserved) return;
+    const idx = session.seats.indexOf(seatId);
+    if (idx >= 0) {
+      session.seats.splice(idx, 1);
+      el.classList.remove('selected');
+    } else {
+      session.seats.push(seatId);
+      el.classList.add('selected');
+    }
+    updateSeatSummary();
+  }
+
+  function selectViewerType(btn) {
+    document.querySelectorAll('.viewer-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    session.viewerType = btn.dataset.type;
+    session.price = parseInt(btn.dataset.price);
+    updateSeatSummary();
+  }
+
+  function updateSeatSummary() {
+    const count = session.seats.length;
+    document.getElementById('selectedCount').textContent = count;
+    const total = count * session.price;
+    document.getElementById('totalPrice').textContent = total.toLocaleString() + '원';
+    document.getElementById('btnStep3Next').disabled = count === 0;
+
+    const movie = DB.movies.find(m => m.id === session.movieId);
+    const theater = DB.theaters.find(t => t.id === session.theaterId);
+    document.getElementById('summaryStep3').innerHTML = `
+      <div class="summary-rows">
+        <div class="summary-row"><span class="label">영화</span><span class="value">${movie?.title || '-'}</span></div>
+        <div class="summary-row"><span class="label">극장</span><span class="value">${theater?.name || '-'}</span></div>
+        <div class="summary-row"><span class="label">날짜</span><span class="value">${session.date || '-'}</span></div>
+        <div class="summary-row"><span class="label">시간</span><span class="value">${session.schedule?.startTime || '-'}</span></div>
+        <div class="summary-row"><span class="label">좌석</span><span class="value">${count > 0 ? session.seats.join(', ') : '-'}</span></div>
+        <div class="summary-row"><span class="label">유형</span><span class="value">${session.viewerType} × ${count}명</span></div>
+      </div>
+    `;
+    updateStep3Summary();
+  }
+
+  function updateStep3Summary() {}
+
+  function goPayment() {
+    if (!session.seats.length) { showToast('좌석을 선택해주세요.', 'error'); return; }
+    const params = new URLSearchParams({
+      movieId: session.movieId,
+      theaterId: session.theaterId,
+      scheduleId: session.schedule?.id,
+      date: session.date,
+      seats: session.seats.join(','),
+      viewerType: session.viewerType,
+      price: session.price,
+      total: session.seats.length * session.price
+    });
+    location.href = 'payment.html?' + params.toString();
+  }
+
+  function showToast(msg, type = '') {
+    const t = document.createElement('div');
+    t.className = 'toast' + (type ? ' ' + type : '');
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 3000);
+  }
+
+  init();
+</script>
+</body>
+</html>

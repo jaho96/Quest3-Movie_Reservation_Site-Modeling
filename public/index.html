@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CineBook - 영화 예매</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <a href="/" class="logo">🎬 CineBook</a>
+    <nav>
+      <a href="/" class="active">영화</a>
+      <a href="/booking.html">예매</a>
+      <a href="#theaters">극장</a>
+    </nav>
+    <div class="header-actions" id="headerActions"></div>
+  </div>
+</header>
+
+<div class="hero">
+  <h1>지금 <span>상영중인</span> 영화</h1>
+  <p>실시간 예매율 순위로 인기 영화를 확인하세요</p>
+</div>
+
+<div class="section" style="padding-bottom:0;">
+  <div style="display:flex;gap:10px;flex-wrap:wrap;">
+    <button class="region-btn active" onclick="filterMovies(null,this)">전체</button>
+    <button class="region-btn" onclick="filterMovies('액션',this)">액션</button>
+    <button class="region-btn" onclick="filterMovies('애니메이션',this)">애니메이션</button>
+    <button class="region-btn" onclick="filterMovies('공포',this)">공포</button>
+    <button class="region-btn" onclick="filterMovies('SF',this)">SF</button>
+    <button class="region-btn" onclick="filterMovies('뮤지컬',this)">뮤지컬</button>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">현재 상영작 <span class="badge badge-accent">LIVE</span></div>
+  <div class="movie-grid" id="movieGrid">
+    <p style="color:var(--text-muted);">로딩 중...</p>
+  </div>
+</div>
+
+<div class="section" id="theaters">
+  <div class="section-title">극장 안내</div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;" id="theaterGrid">
+    <p style="color:var(--text-muted);">로딩 중...</p>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-logo">🎬 CineBook</div>
+  <p>영화 예매의 새로운 경험</p>
+  <div class="footer-links">
+    <a href="#">이용약관</a><a href="#">개인정보처리방침</a><a href="#">고객센터</a>
+  </div>
+  <p>© 2026 CineBook. All rights reserved.</p>
+</footer>
+
+<script src="/js/api.js"></script>
+<script>
+  let allMovies = [];
+
+  async function loadMovies(genre = null) {
+    try {
+      const params = { status: '상영중' };
+      if (genre) params.genre = genre;
+      allMovies = await api.movies.list(params);
+      renderMovies(allMovies);
+    } catch (e) {
+      document.getElementById('movieGrid').innerHTML = `<p style="color:var(--accent);">${e.message}</p>`;
+    }
+  }
+
+  function renderMovies(movies) {
+    const grid = document.getElementById('movieGrid');
+    if (!movies.length) {
+      grid.innerHTML = '<div class="empty-state"><div class="empty-icon">🎬</div><p>해당 장르의 영화가 없습니다.</p></div>';
+      return;
+    }
+    grid.innerHTML = movies.map((m, i) => `
+      <div class="movie-card" onclick="location.href='/detail.html?id=${m.movie_id}'">
+        <div class="movie-poster">
+          ${m.poster && m.poster.startsWith('http')
+            ? `<img src="${m.poster}" alt="${m.title}" style="width:100%;height:100%;object-fit:cover;">`
+            : `<div style="width:100%;height:100%;background:${m.poster||'linear-gradient(135deg,var(--bg-surface),var(--bg-dark))'};display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:16px;box-sizing:border-box;">
+                <div style="font-size:15px;font-weight:700;color:#fff;text-align:center;text-shadow:0 2px 8px rgba(0,0,0,.8);line-height:1.3;">${m.title}</div>
+                <div style="font-size:11px;color:rgba(255,255,255,.7);margin-top:4px;">${m.genre}</div>
+               </div>`
+          }
+        </div>
+        <div class="movie-info">
+          <div class="movie-rank">#${i+1} 예매율 ${m.booking_rate}%</div>
+          <div class="movie-title">${m.title}</div>
+          <div class="movie-meta">
+            <span>${m.genre}</span><span>·</span><span>${m.rating}</span><span>·</span><span>${m.runtime}분</span>
+          </div>
+          <div class="booking-rate">${m.booking_rate}% 예매중</div>
+        </div>
+        <a href="/booking.html?movieId=${m.movie_id}" class="btn-book" onclick="event.stopPropagation()">예매하기</a>
+      </div>
+    `).join('');
+  }
+
+  function filterMovies(genre, btn) {
+    document.querySelectorAll('.region-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    loadMovies(genre);
+  }
+
+  async function loadTheaters() {
+    try {
+      const theaters = await api.theaters.list();
+      document.getElementById('theaterGrid').innerHTML = theaters.map(t => `
+        <div class="theater-item" style="flex-direction:column;align-items:flex-start;gap:6px;">
+          <div class="theater-name">${t.name}</div>
+          <div style="font-size:12px;color:var(--text-secondary);">${t.region} · 상영관 ${t.screen_count}개</div>
+          <div style="font-size:12px;color:var(--text-muted);">${t.transport || ''}</div>
+        </div>
+      `).join('');
+    } catch (e) {
+      document.getElementById('theaterGrid').innerHTML = '';
+    }
+  }
+
+  loadMovies();
+  loadTheaters();
+</script>
+</body>
+</html>

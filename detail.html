@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>영화 상세 - CineBook</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <a href="index.html" class="logo">🎬 CineBook</a>
+    <nav>
+      <a href="index.html">영화</a>
+      <a href="booking.html">예매</a>
+    </nav>
+    <div class="header-actions" id="headerActions">
+      <button class="btn-outline" onclick="location.href='index.html'">로그인</button>
+    </div>
+  </div>
+</header>
+
+<!-- MOVIE DETAIL HERO -->
+<div class="movie-detail-hero" id="detailHero">
+  <div style="text-align:center; padding:40px; color:var(--text-muted);">로딩 중...</div>
+</div>
+
+<!-- TABS -->
+<div class="section" style="padding-top: 24px;">
+  <div class="tabs">
+    <button class="tab-btn active" onclick="showTab('info', this)">영화 정보</button>
+    <button class="tab-btn" onclick="showTab('reviews', this)">관람평 <span id="reviewCount"></span></button>
+    <button class="tab-btn" onclick="showTab('schedule', this)">상영 일정</button>
+  </div>
+
+  <!-- INFO TAB -->
+  <div id="tab-info">
+    <div id="movieSynopsis" style="color:var(--text-secondary); line-height:1.8; font-size:15px; margin-bottom:24px;"></div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px;" id="movieExtraInfo"></div>
+  </div>
+
+  <!-- REVIEWS TAB -->
+  <div id="tab-reviews" style="display:none;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+      <div>
+        <span style="font-size:36px; font-weight:800; color:var(--accent);" id="avgRating">-</span>
+        <span style="font-size:16px; color:var(--text-secondary);"> / 10</span>
+      </div>
+      <button class="btn-primary" onclick="openReviewModal()" style="padding:10px 20px;">리뷰 작성</button>
+    </div>
+    <div id="reviewList"></div>
+  </div>
+
+  <!-- SCHEDULE TAB -->
+  <div id="tab-schedule" style="display:none;">
+    <div class="date-grid" id="schedDateGrid" style="margin-bottom:24px;"></div>
+    <div id="schedList"></div>
+  </div>
+</div>
+
+<!-- REVIEW WRITE MODAL -->
+<div class="modal-overlay" id="reviewModal">
+  <div class="modal" style="position:relative; width:500px;">
+    <span class="modal-close" onclick="closeModal('reviewModal')">✕</span>
+    <h2>관람평 작성</h2>
+    <p>영화를 보고 느낀 점을 나눠주세요</p>
+
+    <div class="form-group">
+      <label class="form-label">평점</label>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <input type="range" min="1" max="10" value="8" id="ratingSlider" style="flex:1;" oninput="document.getElementById('ratingVal').textContent=this.value">
+        <strong id="ratingVal" style="font-size:20px; color:var(--accent); min-width:28px;">8</strong>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">관람 포인트 (최대 3개)</label>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;" id="pointBtns">
+        <button class="point-tag" onclick="togglePoint(this)" style="cursor:pointer; padding:6px 14px; border:1px solid var(--border); border-radius:20px;">연출</button>
+        <button class="point-tag" onclick="togglePoint(this)" style="cursor:pointer; padding:6px 14px; border:1px solid var(--border); border-radius:20px;">스토리</button>
+        <button class="point-tag" onclick="togglePoint(this)" style="cursor:pointer; padding:6px 14px; border:1px solid var(--border); border-radius:20px;">OST</button>
+        <button class="point-tag" onclick="togglePoint(this)" style="cursor:pointer; padding:6px 14px; border:1px solid var(--border); border-radius:20px;">영상미</button>
+        <button class="point-tag" onclick="togglePoint(this)" style="cursor:pointer; padding:6px 14px; border:1px solid var(--border); border-radius:20px;">배우</button>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">한줄평</label>
+      <textarea class="form-input" rows="3" id="reviewText" placeholder="영화에 대한 감상을 남겨주세요..."></textarea>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-primary" style="padding:13px;" onclick="submitReview()">등록하기</button>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-logo">🎬 CineBook</div>
+  <div class="footer-links">
+    <a href="#">이용약관</a>
+    <a href="#">개인정보처리방침</a>
+    <a href="#">고객센터</a>
+  </div>
+  <p>© 2026 CineBook. All rights reserved.</p>
+</footer>
+
+<script src="js/data.js"></script>
+<script>
+  const params = new URLSearchParams(location.search);
+  const movieId = parseInt(params.get('id')) || 1;
+  const movie = DB.movies.find(m => m.id === movieId);
+
+  function init() {
+    if (!movie) { document.getElementById('detailHero').innerHTML = '<div style="text-align:center;padding:60px;color:var(--text-muted);">영화를 찾을 수 없습니다.</div>'; return; }
+    document.title = movie.title + ' - CineBook';
+
+    document.getElementById('detailHero').innerHTML = `
+      <div class="movie-detail-inner">
+        <div class="detail-poster">
+          <img src="${movie.poster}" alt="${movie.title}" onerror="this.outerHTML='<div style=&quot;font-size:60px;display:flex;align-items:center;justify-content:center;height:100%&quot;>🎬</div>'">
+        </div>
+        <div class="detail-info">
+          <div class="detail-tags">
+            <span class="tag accent">${movie.status}</span>
+            <span class="tag">${movie.rating}</span>
+            <span class="tag">${movie.genre}</span>
+            <span class="tag">${movie.screenType}</span>
+          </div>
+          <h1>${movie.title}</h1>
+          <p class="original">${movie.originalTitle} · ${movie.releaseDate} 개봉</p>
+
+          <div class="detail-stats">
+            <div class="stat-item">
+              <div class="stat-value">${movie.bookingRate}%</div>
+              <div class="stat-label">예매율</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value">${(movie.cumAudience/10000).toFixed(0)}만</div>
+              <div class="stat-label">누적관객</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value">${movie.runtime}분</div>
+              <div class="stat-label">러닝타임</div>
+            </div>
+          </div>
+
+          <div class="detail-meta-list">
+            <div class="meta-item"><span class="meta-key">감독</span><span class="meta-val">${movie.director}</span></div>
+            <div class="meta-item"><span class="meta-key">출연</span><span class="meta-val">${movie.cast}</span></div>
+            <div class="meta-item"><span class="meta-key">국가</span><span class="meta-val">${movie.country}</span></div>
+            <div class="meta-item"><span class="meta-key">장르</span><span class="meta-val">${movie.genre_tags.join(', ')}</span></div>
+            ${movie.awards ? `<div class="meta-item" style="grid-column:1/-1;"><span class="meta-key">수상</span><span class="meta-val" style="color:var(--warning);">🏆 ${movie.awards}</span></div>` : ''}
+          </div>
+
+          <button class="btn-book-large" onclick="location.href='booking.html?movieId=${movie.id}'">예매하기</button>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('movieSynopsis').textContent = movie.synopsis;
+    document.getElementById('movieExtraInfo').innerHTML = `
+      <div class="booking-panel">
+        <h3>제작 정보</h3>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <div class="summary-row"><span class="label">감독</span><span class="value">${movie.director}</span></div>
+          <div class="summary-row"><span class="label">각본</span><span class="value">${movie.writer}</span></div>
+          <div class="summary-row"><span class="label">제작사</span><span class="value">워너브라더스</span></div>
+          <div class="summary-row"><span class="label">배급사</span><span class="value">CJ ENM</span></div>
+          <div class="summary-row"><span class="label">국가</span><span class="value">${movie.country}</span></div>
+        </div>
+      </div>
+      <div class="booking-panel">
+        <h3>출연진</h3>
+        <p style="color:var(--text-secondary); font-size:14px; line-height:1.8;">${movie.cast}</p>
+        ${movie.awards ? `<div style="margin-top:16px; padding:12px; background:rgba(255,152,0,0.08); border:1px solid rgba(255,152,0,0.3); border-radius:8px; font-size:13px; color:var(--warning);">🏆 ${movie.awards}</div>` : ''}
+      </div>
+    `;
+
+    renderReviews();
+    renderScheduleDates();
+  }
+
+  function renderReviews() {
+    const movieReviews = DB.reviews.filter(r => r.movieId === movieId);
+    document.getElementById('reviewCount').textContent = `(${movieReviews.length})`;
+    if (!movieReviews.length) {
+      document.getElementById('avgRating').textContent = '-';
+      document.getElementById('reviewList').innerHTML = `<div class="empty-state"><div class="empty-icon">💬</div><p>아직 관람평이 없습니다. 첫 번째로 작성해보세요!</p></div>`;
+      return;
+    }
+    const avg = (movieReviews.reduce((s,r) => s+r.rating, 0) / movieReviews.length).toFixed(1);
+    document.getElementById('avgRating').textContent = avg;
+    document.getElementById('reviewList').innerHTML = movieReviews.map(r => `
+      <div class="review-card">
+        <div class="review-header">
+          <div>
+            <div class="reviewer">관람객</div>
+            <div class="review-date">${r.createdAt}</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="review-rating">${r.rating}<span style="font-size:14px; color:var(--text-muted);">/10</span></div>
+          </div>
+        </div>
+        <div class="review-points">
+          ${r.viewingPoints.map(p => `<span class="point-tag">${p}</span>`).join('')}
+        </div>
+        <div class="review-content">${r.content}</div>
+        <div class="review-likes">👍 ${r.likes}명에게 도움이 됐어요</div>
+      </div>
+    `).join('');
+  }
+
+  function renderScheduleDates() {
+    const today = new Date('2026-05-01');
+    const days = ['일','월','화','수','목','금','토'];
+    const dates = Array.from({length:7}, (_,i) => {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      return d;
+    });
+
+    document.getElementById('schedDateGrid').innerHTML = dates.map((d,i) => `
+      <button class="date-btn ${i===0?'selected':''}" onclick="selectSchedDate('${d.toISOString().split('T')[0]}', this)">
+        <span class="day-num">${d.getDate()}</span>
+        <span class="day-name">${days[d.getDay()]}</span>
+      </button>
+    `).join('');
+
+    renderSchedules(dates[0].toISOString().split('T')[0]);
+  }
+
+  function selectSchedDate(date, btn) {
+    document.querySelectorAll('#schedDateGrid .date-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    renderSchedules(date);
+  }
+
+  function renderSchedules(date) {
+    const scheds = DB.schedules.filter(s => s.movieId === movieId && s.date === date);
+    if (!scheds.length) {
+      document.getElementById('schedList').innerHTML = `<div class="empty-state"><div class="empty-icon">📅</div><p>해당 날짜에 상영 일정이 없습니다.</p></div>`;
+      return;
+    }
+
+    const byTheater = {};
+    scheds.forEach(s => {
+      const t = DB.theaters.find(t => t.id === s.theaterId);
+      if (!byTheater[s.theaterId]) byTheater[s.theaterId] = { theater: t, schedules: [] };
+      byTheater[s.theaterId].schedules.push(s);
+    });
+
+    document.getElementById('schedList').innerHTML = Object.values(byTheater).map(({theater, schedules}) => `
+      <div class="booking-panel" style="margin-bottom:16px;">
+        <h3>${theater.name} · ${theater.region}</h3>
+        <div class="schedule-grid">
+          ${schedules.map(s => {
+            const screen = DB.screens.find(sc => sc.id === s.screenId);
+            return `
+            <div class="schedule-item" onclick="location.href='booking.html?movieId=${movieId}&scheduleId=${s.id}'">
+              <div class="sch-time">${s.startTime}</div>
+              <div class="sch-end">~ ${s.endTime}</div>
+              <div class="sch-screen">${screen ? screen.classification : ''}</div>
+              ${s.timeSlot !== '일반' ? `<div class="sch-slot">${s.timeSlot}</div>` : ''}
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function showTab(name, btn) {
+    ['info','reviews','schedule'].forEach(t => {
+      document.getElementById('tab-'+t).style.display = t === name ? 'block' : 'none';
+    });
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+
+  function openModal(id) { document.getElementById(id).classList.add('open'); }
+  function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+  function openReviewModal() {
+    openModal('reviewModal');
+  }
+
+  function togglePoint(btn) {
+    const selected = document.querySelectorAll('#pointBtns .point-tag[data-selected]');
+    if (btn.dataset.selected) {
+      delete btn.dataset.selected;
+      btn.style.background = '';
+      btn.style.color = '';
+      btn.style.borderColor = '';
+    } else {
+      if (selected.length >= 3) { showToast('최대 3개까지 선택 가능합니다.', 'error'); return; }
+      btn.dataset.selected = '1';
+      btn.style.background = 'var(--accent)';
+      btn.style.color = 'white';
+      btn.style.borderColor = 'var(--accent)';
+    }
+  }
+
+  function submitReview() {
+    const content = document.getElementById('reviewText').value.trim();
+    if (!content) { showToast('한줄평을 입력해주세요.', 'error'); return; }
+    const rating = parseInt(document.getElementById('ratingSlider').value);
+    const points = [...document.querySelectorAll('#pointBtns [data-selected]')].map(b => b.textContent);
+
+    DB.reviews.unshift({
+      id: Date.now(), customerId: 1, movieId,
+      rating, viewingPoints: points, content,
+      likes: 0, createdAt: new Date().toISOString().split('T')[0], status: '정상'
+    });
+
+    closeModal('reviewModal');
+    renderReviews();
+    showTab('reviews', document.querySelectorAll('.tab-btn')[1]);
+    document.querySelectorAll('.tab-btn')[1].click();
+    showToast('관람평이 등록되었습니다.', 'success');
+  }
+
+  function showToast(msg, type = '') {
+    const t = document.createElement('div');
+    t.className = 'toast' + (type ? ' ' + type : '');
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 3000);
+  }
+
+  document.querySelectorAll('.modal-overlay').forEach(el => {
+    el.addEventListener('click', e => { if (e.target === el) el.classList.remove('open'); });
+  });
+
+  init();
+</script>
+</body>
+</html>

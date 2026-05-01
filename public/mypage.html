@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CineBook - 마이페이지</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .mypage-container { max-width: 900px; margin: 0 auto; padding: 40px 20px; }
+    .profile-card { background: var(--bg-surface); border-radius: 16px; padding: 32px; border: 1px solid var(--border); margin-bottom: 24px; display: flex; align-items: center; gap: 24px; }
+    .avatar { width: 72px; height: 72px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), #c17b00); display: flex; align-items: center; justify-content: center; font-size: 32px; flex-shrink: 0; }
+    .profile-info h2 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+    .profile-info p { font-size: 14px; color: var(--text-secondary); }
+    .profile-actions { margin-left: auto; display: flex; gap: 8px; }
+
+    .tabs { display: flex; gap: 4px; background: var(--bg-surface); border-radius: 12px; padding: 6px; border: 1px solid var(--border); margin-bottom: 20px; }
+    .tab-btn { flex: 1; padding: 10px; border: none; background: transparent; color: var(--text-secondary); border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all .2s; }
+    .tab-btn.active { background: var(--accent); color: #000; font-weight: 700; }
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+
+    /* 예매 내역 */
+    .reservation-card { background: var(--bg-surface); border-radius: 14px; border: 1px solid var(--border); padding: 20px 24px; margin-bottom: 12px; display: flex; align-items: flex-start; gap: 20px; }
+    .res-status { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; flex-shrink: 0; }
+    .res-status.confirmed { background: rgba(229,160,9,.15); color: var(--accent); }
+    .res-status.cancelled { background: rgba(255,77,77,.1); color: #ff4d4d; }
+    .res-info { flex: 1; }
+    .res-movie { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+    .res-detail { font-size: 13px; color: var(--text-secondary); display: flex; flex-wrap: wrap; gap: 8px; }
+    .res-detail span::before { content: '·'; margin-right: 8px; }
+    .res-detail span:first-child::before { content: ''; margin-right: 0; }
+    .res-seats { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 8px; }
+    .res-seat { background: var(--bg-dark); border: 1px solid var(--border); border-radius: 4px; padding: 2px 8px; font-size: 12px; }
+    .res-amount { font-size: 16px; font-weight: 700; color: var(--accent); white-space: nowrap; }
+    .btn-cancel { padding: 6px 14px; border-radius: 8px; border: 1px solid #ff4d4d; background: transparent; color: #ff4d4d; cursor: pointer; font-size: 13px; margin-top: 8px; }
+    .btn-cancel:hover { background: rgba(255,77,77,.08); }
+
+    /* 티켓 */
+    .ticket-card { background: var(--bg-surface); border-radius: 14px; border: 1px solid var(--border); padding: 20px 24px; margin-bottom: 12px; display: flex; align-items: center; gap: 20px; }
+    .ticket-icon { font-size: 36px; flex-shrink: 0; }
+    .ticket-info { flex: 1; }
+    .ticket-movie { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+    .ticket-detail { font-size: 13px; color: var(--text-secondary); }
+    .ticket-status { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+    .ticket-status.unused { background: rgba(229,160,9,.15); color: var(--accent); }
+    .ticket-status.used { background: var(--bg-dark); color: var(--text-muted); }
+
+    /* 관람평 */
+    .review-card { background: var(--bg-surface); border-radius: 14px; border: 1px solid var(--border); padding: 20px 24px; margin-bottom: 12px; }
+    .review-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .review-rating { color: var(--accent); font-weight: 700; font-size: 16px; }
+    .review-date { font-size: 12px; color: var(--text-muted); }
+    .review-text { font-size: 14px; color: var(--text-secondary); line-height: 1.6; }
+    .btn-del-review { padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); cursor: pointer; font-size: 12px; }
+    .btn-del-review:hover { border-color: #ff4d4d; color: #ff4d4d; }
+
+    /* 정보 수정 */
+    .edit-form { background: var(--bg-surface); border-radius: 16px; border: 1px solid var(--border); padding: 28px; }
+    .edit-form .form-group { margin-bottom: 16px; }
+    .section-divider { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
+    .pw-section-title { font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 16px; }
+
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); }
+    .empty-state .empty-icon { font-size: 48px; margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <a href="/" class="logo">🎬 CineBook</a>
+    <nav>
+      <a href="/">영화</a>
+      <a href="/booking.html">예매</a>
+    </nav>
+    <div class="header-actions" id="headerActions"></div>
+  </div>
+</header>
+
+<div class="mypage-container">
+
+  <!-- 프로필 -->
+  <div class="profile-card" id="profileCard">
+    <div class="avatar">👤</div>
+    <div class="profile-info">
+      <h2 id="profileName">-</h2>
+      <p id="profileEmail">-</p>
+      <p id="profilePhone" style="margin-top:2px;"></p>
+    </div>
+    <div class="profile-actions">
+      <button class="btn-outline" onclick="switchTab('edit')">정보 수정</button>
+      <button class="btn-outline" style="color:#ff4d4d;border-color:#ff4d4d;" onclick="confirmWithdraw()">회원 탈퇴</button>
+    </div>
+  </div>
+
+  <!-- 탭 -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('reservations')">예매 내역</button>
+    <button class="tab-btn" onclick="switchTab('tickets')">나의 티켓</button>
+    <button class="tab-btn" onclick="switchTab('reviews')">나의 관람평</button>
+    <button class="tab-btn" onclick="switchTab('edit')">정보 수정</button>
+  </div>
+
+  <!-- 예매 내역 -->
+  <div class="tab-pane active" id="tab-reservations">
+    <div id="reservationList"><div class="empty-state"><div class="empty-icon">🎟️</div><p>로딩 중...</p></div></div>
+  </div>
+
+  <!-- 나의 티켓 -->
+  <div class="tab-pane" id="tab-tickets">
+    <div id="ticketList"><div class="empty-state"><div class="empty-icon">🎫</div><p>로딩 중...</p></div></div>
+  </div>
+
+  <!-- 나의 관람평 -->
+  <div class="tab-pane" id="tab-reviews">
+    <div id="reviewList"><div class="empty-state"><div class="empty-icon">💬</div><p>로딩 중...</p></div></div>
+  </div>
+
+  <!-- 정보 수정 -->
+  <div class="tab-pane" id="tab-edit">
+    <div class="edit-form">
+      <h3 style="font-size:18px;font-weight:600;margin-bottom:20px;">기본 정보 수정</h3>
+      <div class="form-group">
+        <label class="form-label">이름</label>
+        <input class="form-input" id="editName" type="text" placeholder="이름">
+      </div>
+      <div class="form-group">
+        <label class="form-label">휴대폰</label>
+        <input class="form-input" id="editPhone" type="tel" placeholder="010-0000-0000">
+      </div>
+      <div class="form-group">
+        <label class="form-label">생년월일</label>
+        <input class="form-input" id="editBirth" type="date">
+      </div>
+      <button class="btn-primary" style="padding:12px 28px;" onclick="saveProfile()">저장하기</button>
+
+      <hr class="section-divider">
+      <p class="pw-section-title">비밀번호 변경</p>
+      <div class="form-group">
+        <label class="form-label">현재 비밀번호</label>
+        <input class="form-input" id="currentPw" type="password" placeholder="현재 비밀번호">
+      </div>
+      <div class="form-group">
+        <label class="form-label">새 비밀번호</label>
+        <input class="form-input" id="newPw" type="password" placeholder="새 비밀번호 (6자 이상)">
+      </div>
+      <div class="form-group">
+        <label class="form-label">새 비밀번호 확인</label>
+        <input class="form-input" id="newPwConfirm" type="password" placeholder="새 비밀번호 확인">
+      </div>
+      <button class="btn-outline" style="padding:12px 28px;" onclick="changePassword()">비밀번호 변경</button>
+    </div>
+  </div>
+
+</div>
+
+<script src="/js/api.js"></script>
+<script>
+  let currentUser = null;
+
+  async function initMyPage() {
+    if (!auth.isLoggedIn()) {
+      alert('로그인이 필요합니다.');
+      location.href = '/';
+      return;
+    }
+    try {
+      currentUser = await api.customers.me();
+      renderProfile(currentUser);
+      loadReservations();
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+  }
+
+  function renderProfile(u) {
+    document.getElementById('profileName').textContent = u.name;
+    document.getElementById('profileEmail').textContent = u.email;
+    document.getElementById('profilePhone').textContent = u.phone || '';
+    document.getElementById('editName').value = u.name || '';
+    document.getElementById('editPhone').value = u.phone || '';
+    document.getElementById('editBirth').value = u.birth_date || '';
+  }
+
+  function switchTab(name) {
+    document.querySelectorAll('.tab-btn').forEach((b, i) => {
+      const names = ['reservations', 'tickets', 'reviews', 'edit'];
+      b.classList.toggle('active', names[i] === name);
+    });
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+
+    if (name === 'tickets') loadTickets();
+    if (name === 'reviews') loadReviews();
+  }
+
+  // ── 예매 내역 ──────────────────────────────────────────
+  async function loadReservations() {
+    try {
+      const list = await api.reservations.list();
+      const el = document.getElementById('reservationList');
+      if (!list.length) {
+        el.innerHTML = '<div class="empty-state"><div class="empty-icon">🎟️</div><p>예매 내역이 없습니다.</p></div>';
+        return;
+      }
+      el.innerHTML = list.map(r => {
+        const isCancelled = r.status === '취소';
+        const seats = r.seats ? r.seats.split(',') : [];
+        return `
+          <div class="reservation-card">
+            <span class="res-status ${isCancelled ? 'cancelled' : 'confirmed'}">${r.status}</span>
+            <div class="res-info">
+              <div class="res-movie">${r.movie_title || '영화 정보 없음'}</div>
+              <div class="res-detail">
+                <span>${r.theater_name || ''}</span>
+                <span>${r.schedule_date || ''} ${r.start_time || ''}</span>
+                <span>${r.viewer_type}</span>
+              </div>
+              ${seats.length ? `<div class="res-seats">${seats.map(s => `<span class="res-seat">${s}</span>`).join('')}</div>` : ''}
+              ${!isCancelled ? `<button class="btn-cancel" onclick="cancelReservation(${r.reservation_id})">예매 취소</button>` : ''}
+            </div>
+            <div class="res-amount">${(r.total_price || 0).toLocaleString()}원</div>
+          </div>
+        `;
+      }).join('');
+    } catch (e) {
+      document.getElementById('reservationList').innerHTML = `<div class="empty-state"><p style="color:var(--accent);">${e.message}</p></div>`;
+    }
+  }
+
+  async function cancelReservation(id) {
+    if (!confirm('예매를 취소하시겠습니까?')) return;
+    try {
+      await api.reservations.cancel(id);
+      showToast('예매가 취소되었습니다.', 'success');
+      loadReservations();
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+  }
+
+  // ── 나의 티켓 ──────────────────────────────────────────
+  async function loadTickets() {
+    try {
+      const list = await api.tickets.list();
+      const el = document.getElementById('ticketList');
+      if (!list.length) {
+        el.innerHTML = '<div class="empty-state"><div class="empty-icon">🎫</div><p>티켓이 없습니다.</p></div>';
+        return;
+      }
+      el.innerHTML = list.map(t => `
+        <div class="ticket-card">
+          <div class="ticket-icon">🎫</div>
+          <div class="ticket-info">
+            <div class="ticket-movie">${t.movie_title || '영화 정보 없음'}</div>
+            <div class="ticket-detail">${t.theater_name || ''} · ${t.schedule_date || ''} ${t.start_time || ''} · ${t.seat_number || ''} · ${t.ticket_type}</div>
+          </div>
+          <span class="ticket-status ${t.is_used ? 'used' : 'unused'}">${t.is_used ? '사용됨' : '미사용'}</span>
+        </div>
+      `).join('');
+    } catch (e) {
+      document.getElementById('ticketList').innerHTML = `<div class="empty-state"><p style="color:var(--accent);">${e.message}</p></div>`;
+    }
+  }
+
+  // ── 나의 관람평 ────────────────────────────────────────
+  async function loadReviews() {
+    try {
+      const list = await api.reviews.list({ customer_id: currentUser.customer_id });
+      const el = document.getElementById('reviewList');
+      if (!list.length) {
+        el.innerHTML = '<div class="empty-state"><div class="empty-icon">💬</div><p>작성한 관람평이 없습니다.</p></div>';
+        return;
+      }
+      el.innerHTML = list.map(r => `
+        <div class="review-card">
+          <div class="review-header">
+            <span class="review-rating">★ ${r.rating}</span>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span class="review-date">${r.created_at ? r.created_at.slice(0,10) : ''}</span>
+              <button class="btn-del-review" onclick="deleteReview(${r.review_id})">삭제</button>
+            </div>
+          </div>
+          <div class="review-text">${r.content}</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:8px;">좋아요 ${r.likes || 0}개</div>
+        </div>
+      `).join('');
+    } catch (e) {
+      document.getElementById('reviewList').innerHTML = `<div class="empty-state"><p style="color:var(--accent);">${e.message}</p></div>`;
+    }
+  }
+
+  async function deleteReview(id) {
+    if (!confirm('관람평을 삭제하시겠습니까?')) return;
+    try {
+      await api.reviews.delete(id);
+      showToast('관람평이 삭제되었습니다.', 'success');
+      loadReviews();
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+  }
+
+  // ── 정보 수정 ──────────────────────────────────────────
+  async function saveProfile() {
+    const name  = document.getElementById('editName').value.trim();
+    const phone = document.getElementById('editPhone').value.trim();
+    const birth_date = document.getElementById('editBirth').value;
+    if (!name) { showToast('이름을 입력해주세요.', 'error'); return; }
+    try {
+      const updated = await api.customers.updateMe({ name, phone, birth_date });
+      auth.setAuth(auth.getToken(), updated);
+      currentUser = updated;
+      renderProfile(updated);
+      renderAuthHeader();
+      showToast('정보가 수정되었습니다.', 'success');
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+  }
+
+  async function changePassword() {
+    const current_password = document.getElementById('currentPw').value;
+    const new_password     = document.getElementById('newPw').value;
+    const confirm          = document.getElementById('newPwConfirm').value;
+    if (!current_password || !new_password) { showToast('비밀번호를 입력해주세요.', 'error'); return; }
+    if (new_password.length < 6) { showToast('새 비밀번호는 6자 이상이어야 합니다.', 'error'); return; }
+    if (new_password !== confirm) { showToast('새 비밀번호가 일치하지 않습니다.', 'error'); return; }
+    try {
+      await api.customers.changePassword({ current_password, new_password });
+      showToast('비밀번호가 변경되었습니다.', 'success');
+      document.getElementById('currentPw').value = '';
+      document.getElementById('newPw').value = '';
+      document.getElementById('newPwConfirm').value = '';
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+  }
+
+  // ── 회원 탈퇴 ──────────────────────────────────────────
+  async function confirmWithdraw() {
+    if (!confirm('정말 탈퇴하시겠습니까? 모든 데이터가 삭제됩니다.')) return;
+    try {
+      await api.customers.withdraw();
+      auth.clearAuth();
+      showToast('회원 탈퇴가 완료되었습니다.', 'success');
+      setTimeout(() => location.href = '/', 1500);
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+  }
+
+  initMyPage();
+</script>
+</body>
+</html>

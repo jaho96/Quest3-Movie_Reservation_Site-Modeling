@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>결제하기 - CineBook</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <a href="index.html" class="logo">🎬 CineBook</a>
+    <nav>
+      <a href="index.html">영화</a>
+      <a href="booking.html">예매</a>
+    </nav>
+    <div class="header-actions">
+      <button class="btn-outline" onclick="location.href='index.html'">로그인</button>
+    </div>
+  </div>
+</header>
+
+<div class="section">
+  <!-- STEPS -->
+  <div class="booking-steps">
+    <div class="step done">① 영화·극장 선택</div>
+    <div class="step done">② 날짜·시간 선택</div>
+    <div class="step done">③ 좌석 선택</div>
+    <div class="step active">④ 결제</div>
+  </div>
+
+  <div class="payment-layout">
+    <!-- LEFT: Payment Form -->
+    <div style="display:flex; flex-direction:column; gap:20px;">
+
+      <!-- 관람객 정보 -->
+      <div class="booking-panel">
+        <h3>👤 관람객 정보</h3>
+        <div class="form-group">
+          <label class="form-label">이름</label>
+          <input type="text" class="form-input" id="payerName" placeholder="이름을 입력하세요" value="김민준">
+        </div>
+        <div class="form-group">
+          <label class="form-label">휴대폰 번호</label>
+          <input type="tel" class="form-input" id="payerPhone" placeholder="010-0000-0000" value="010-1234-5678">
+        </div>
+        <div class="form-group">
+          <label class="form-label">이메일 (예매 확인용)</label>
+          <input type="email" class="form-input" id="payerEmail" placeholder="이메일을 입력하세요" value="minjun@email.com">
+        </div>
+      </div>
+
+      <!-- 할인 혜택 -->
+      <div class="booking-panel">
+        <h3>🎁 할인 혜택</h3>
+
+        <div class="form-group">
+          <label class="form-label">쿠폰 번호</label>
+          <div style="display:flex; gap:10px;">
+            <input type="text" class="form-input" id="couponInput" placeholder="쿠폰 번호를 입력하세요" style="flex:1;">
+            <button class="btn-primary" style="padding:0 20px; white-space:nowrap;" onclick="applyCoupon()">적용</button>
+          </div>
+          <div id="couponMsg" style="font-size:12px; margin-top:6px; color:var(--text-muted);"></div>
+        </div>
+
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">포인트 사용</label>
+          <div style="display:flex; gap:10px; align-items:center;">
+            <input type="number" class="form-input" id="pointInput" placeholder="0" min="0" max="5000" style="flex:1;" oninput="updateTotal()">
+            <span style="font-size:13px; color:var(--text-secondary); white-space:nowrap;">보유: <strong>5,000P</strong></span>
+            <button class="btn-outline" style="padding:8px 14px; white-space:nowrap;" onclick="useAllPoints()">전액 사용</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 결제 수단 -->
+      <div class="booking-panel">
+        <h3>💳 결제 수단</h3>
+
+        <div class="form-group">
+          <label class="form-label">결제 방법 선택</label>
+          <div class="payment-methods">
+            <button class="pay-method-btn selected" data-method="신용카드" onclick="selectPayMethod(this)">💳 신용카드</button>
+            <button class="pay-method-btn" data-method="카카오페이" onclick="selectPayMethod(this)">🟡 카카오페이</button>
+            <button class="pay-method-btn" data-method="네이버페이" onclick="selectPayMethod(this)">🟢 네이버페이</button>
+            <button class="pay-method-btn" data-method="토스페이" onclick="selectPayMethod(this)">🔵 토스페이</button>
+            <button class="pay-method-btn" data-method="계좌이체" onclick="selectPayMethod(this)">🏦 계좌이체</button>
+            <button class="pay-method-btn" data-method="상품권" onclick="selectPayMethod(this)">🎫 상품권</button>
+          </div>
+        </div>
+
+        <div id="cardFields">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label">카드사</label>
+              <select class="form-input" id="cardCompany">
+                <option>삼성카드</option>
+                <option>신한카드</option>
+                <option>KB국민카드</option>
+                <option>현대카드</option>
+                <option>롯데카드</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label">할부</label>
+              <select class="form-input" id="installment">
+                <option value="0">일시불</option>
+                <option value="2">2개월</option>
+                <option value="3">3개월</option>
+                <option value="6">6개월</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT: Order Summary -->
+    <div class="summary-panel" id="orderSummary">
+      <h3>결제 정보</h3>
+      <div id="summaryContent"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 결제 완료 모달 -->
+<div class="modal-overlay" id="completeModal">
+  <div class="modal" style="position:relative; text-align:center;">
+    <div style="font-size:60px; margin-bottom:20px;">🎉</div>
+    <h2>예매가 완료되었습니다!</h2>
+    <p style="margin-bottom:24px;">예매 확인 이메일이 발송되었습니다.</p>
+    <div id="ticketInfo" style="background:var(--bg-surface); border-radius:10px; padding:20px; margin-bottom:24px; text-align:left;"></div>
+    <div class="modal-actions">
+      <button class="btn-primary" style="padding:13px;" onclick="location.href='mypage.html'">예매 내역 확인</button>
+      <button class="btn-outline" style="padding:12px;" onclick="location.href='index.html'">홈으로</button>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-logo">🎬 CineBook</div>
+  <p>© 2026 CineBook. All rights reserved.</p>
+</footer>
+
+<script src="js/data.js"></script>
+<script>
+  const params = new URLSearchParams(location.search);
+  const movieId = parseInt(params.get('movieId'));
+  const theaterId = parseInt(params.get('theaterId'));
+  const scheduleId = parseInt(params.get('scheduleId'));
+  const date = params.get('date');
+  const seats = (params.get('seats') || '').split(',').filter(Boolean);
+  const viewerType = params.get('viewerType') || '성인';
+  const pricePerSeat = parseInt(params.get('price') || 14000);
+  const baseTotal = parseInt(params.get('total') || 0);
+
+  let couponDiscount = 0;
+  let pointUsed = 0;
+  let selectedPayMethod = '신용카드';
+
+  const movie = DB.movies.find(m => m.id === movieId);
+  const theater = DB.theaters.find(t => t.id === theaterId);
+  const schedule = DB.schedules.find(s => s.id === scheduleId);
+  const screen = schedule ? DB.screens.find(s => s.id === schedule.screenId) : null;
+
+  function renderSummary() {
+    const finalTotal = Math.max(0, baseTotal - couponDiscount - pointUsed);
+    document.getElementById('summaryContent').innerHTML = `
+      <div class="summary-movie-title">${movie?.title || '영화 정보 없음'}</div>
+      <div class="summary-rows">
+        <div class="summary-row"><span class="label">극장</span><span class="value">${theater?.name || '-'}</span></div>
+        <div class="summary-row"><span class="label">날짜</span><span class="value">${date || '-'}</span></div>
+        <div class="summary-row"><span class="label">시간</span><span class="value">${schedule?.startTime || '-'} ~ ${schedule?.endTime || '-'}</span></div>
+        <div class="summary-row"><span class="label">상영관</span><span class="value">${screen?.classification || '-'} ${screen?.number || ''}관</span></div>
+        <div class="summary-row"><span class="label">좌석</span><span class="value">${seats.join(', ') || '-'}</span></div>
+        <div class="summary-row"><span class="label">관람유형</span><span class="value">${viewerType} × ${seats.length}명</span></div>
+      </div>
+      <hr class="summary-divider">
+      <div class="summary-rows">
+        <div class="summary-row"><span class="label">영화 금액</span><span class="value">${baseTotal.toLocaleString()}원</span></div>
+        ${couponDiscount > 0 ? `<div class="summary-row"><span class="label" style="color:var(--success);">쿠폰 할인</span><span class="value" style="color:var(--success);">-${couponDiscount.toLocaleString()}원</span></div>` : ''}
+        ${pointUsed > 0 ? `<div class="summary-row"><span class="label" style="color:var(--success);">포인트 사용</span><span class="value" style="color:var(--success);">-${pointUsed.toLocaleString()}원</span></div>` : ''}
+      </div>
+      <hr class="summary-divider">
+      <div class="summary-total">
+        <span>최종 결제금액</span>
+        <span class="total-price">${finalTotal.toLocaleString()}원</span>
+      </div>
+      <button class="btn-next" onclick="doPayment()" style="margin-top:20px;">
+        ${finalTotal.toLocaleString()}원 결제하기
+      </button>
+      <p style="text-align:center; font-size:11px; color:var(--text-muted); margin-top:12px;">
+        결제 버튼 클릭 시 이용약관에 동의하는 것으로 간주됩니다.
+      </p>
+    `;
+  }
+
+  function selectPayMethod(btn) {
+    document.querySelectorAll('.pay-method-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    selectedPayMethod = btn.dataset.method;
+    const isCard = selectedPayMethod === '신용카드';
+    document.getElementById('cardFields').style.display = isCard ? 'block' : 'none';
+  }
+
+  function applyCoupon() {
+    const code = document.getElementById('couponInput').value.trim().toUpperCase();
+    const msg = document.getElementById('couponMsg');
+    if (code === 'CINE2026') {
+      couponDiscount = 3000;
+      msg.style.color = 'var(--success)';
+      msg.textContent = '✓ 쿠폰이 적용되었습니다. (-3,000원)';
+      renderSummary();
+    } else if (code === 'WELCOME') {
+      couponDiscount = 5000;
+      msg.style.color = 'var(--success)';
+      msg.textContent = '✓ 신규 회원 쿠폰 적용! (-5,000원)';
+      renderSummary();
+    } else {
+      couponDiscount = 0;
+      msg.style.color = 'var(--accent)';
+      msg.textContent = '유효하지 않은 쿠폰 번호입니다.';
+    }
+  }
+
+  function useAllPoints() {
+    const available = Math.min(5000, baseTotal - couponDiscount);
+    document.getElementById('pointInput').value = available;
+    pointUsed = available;
+    renderSummary();
+  }
+
+  function updateTotal() {
+    pointUsed = Math.min(parseInt(document.getElementById('pointInput').value) || 0, 5000);
+    renderSummary();
+  }
+
+  function doPayment() {
+    const name = document.getElementById('payerName').value.trim();
+    const phone = document.getElementById('payerPhone').value.trim();
+    if (!name || !phone) {
+      showToast('이름과 휴대폰 번호를 입력해주세요.', 'error');
+      return;
+    }
+
+    const finalTotal = Math.max(0, baseTotal - couponDiscount - pointUsed);
+    const reservationNo = 'CGV' + Date.now().toString().slice(-8);
+
+    document.getElementById('ticketInfo').innerHTML = `
+      <div class="summary-rows">
+        <div class="summary-row"><span class="label">예매번호</span><span class="value" style="font-weight:700; color:var(--accent);">${reservationNo}</span></div>
+        <div class="summary-row"><span class="label">영화</span><span class="value">${movie?.title || '-'}</span></div>
+        <div class="summary-row"><span class="label">극장</span><span class="value">${theater?.name || '-'}</span></div>
+        <div class="summary-row"><span class="label">일시</span><span class="value">${date} ${schedule?.startTime || ''}</span></div>
+        <div class="summary-row"><span class="label">좌석</span><span class="value">${seats.join(', ')}</span></div>
+        <div class="summary-row"><span class="label">결제금액</span><span class="value">${finalTotal.toLocaleString()}원</span></div>
+        <div class="summary-row"><span class="label">결제수단</span><span class="value">${selectedPayMethod}</span></div>
+      </div>
+    `;
+
+    document.getElementById('completeModal').classList.add('open');
+  }
+
+  function showToast(msg, type = '') {
+    const t = document.createElement('div');
+    t.className = 'toast' + (type ? ' ' + type : '');
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 3000);
+  }
+
+  // Init
+  if (!movieId) {
+    document.querySelector('.section').innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">😅</div>
+        <p>예매 정보가 없습니다. 예매 페이지에서 다시 시작해주세요.</p>
+        <a href="booking.html" class="btn-primary" style="display:inline-block; margin-top:20px; padding:12px 24px;">예매하기</a>
+      </div>
+    `;
+  } else {
+    renderSummary();
+  }
+</script>
+</body>
+</html>

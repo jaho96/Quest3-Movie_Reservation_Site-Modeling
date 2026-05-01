@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CineBook - 영화 예매</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="header-inner">
+    <a href="index.html" class="logo">🎬 CineBook</a>
+    <nav>
+      <a href="index.html" class="active">영화</a>
+      <a href="booking.html">예매</a>
+      <a href="#theaters">극장</a>
+    </nav>
+    <div class="header-actions" id="headerActions">
+      <button class="btn-outline" onclick="openModal('loginModal')">로그인</button>
+      <button class="btn-primary" onclick="openModal('loginModal')">회원가입</button>
+    </div>
+  </div>
+</header>
+
+<!-- HERO -->
+<div class="hero">
+  <h1>지금 <span>상영중인</span> 영화</h1>
+  <p>실시간 예매율 순위로 인기 영화를 확인하세요</p>
+</div>
+
+<!-- FILTER BAR -->
+<div class="section" style="padding-bottom: 0;">
+  <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:0;">
+    <button class="region-btn active" onclick="filterMovies('all', this)">전체</button>
+    <button class="region-btn" onclick="filterMovies('액션', this)">액션</button>
+    <button class="region-btn" onclick="filterMovies('애니메이션', this)">애니메이션</button>
+    <button class="region-btn" onclick="filterMovies('공포', this)">공포</button>
+    <button class="region-btn" onclick="filterMovies('SF', this)">SF</button>
+    <button class="region-btn" onclick="filterMovies('뮤지컬', this)">뮤지컬</button>
+  </div>
+</div>
+
+<!-- NOW PLAYING -->
+<div class="section">
+  <div class="section-title">
+    현재 상영작
+    <span class="badge badge-accent">LIVE</span>
+  </div>
+  <div class="movie-grid" id="nowPlaying"></div>
+</div>
+
+<!-- THEATER INFO -->
+<div class="section" id="theaters">
+  <div class="section-title">극장 안내</div>
+  <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); gap:16px;" id="theaterList"></div>
+</div>
+
+<!-- LOGIN MODAL -->
+<div class="modal-overlay" id="loginModal">
+  <div class="modal" style="position:relative;">
+    <span class="modal-close" onclick="closeModal('loginModal')">✕</span>
+    <h2>로그인</h2>
+    <p>CineBook 계정으로 로그인하세요</p>
+    <div class="form-group">
+      <label class="form-label">이메일</label>
+      <input type="email" class="form-input" id="loginEmail" placeholder="이메일을 입력하세요" value="minjun@email.com">
+    </div>
+    <div class="form-group">
+      <label class="form-label">비밀번호</label>
+      <input type="password" class="form-input" id="loginPw" placeholder="비밀번호를 입력하세요" value="1234">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-primary" style="padding:13px;" onclick="doLogin()">로그인</button>
+      <button class="btn-outline" style="padding:12px;">카카오로 로그인</button>
+    </div>
+    <p style="text-align:center; margin-top:16px; font-size:13px; color:var(--text-muted);">테스트: 아무 이메일/비밀번호나 입력하세요</p>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-logo">🎬 CineBook</div>
+  <p>영화 예매의 새로운 경험</p>
+  <div class="footer-links">
+    <a href="#">이용약관</a>
+    <a href="#">개인정보처리방침</a>
+    <a href="#">고객센터</a>
+  </div>
+  <p>© 2026 CineBook. All rights reserved.</p>
+</footer>
+
+<script src="js/data.js"></script>
+<script>
+  function renderMovies(list) {
+    const grid = document.getElementById('nowPlaying');
+    grid.innerHTML = list.map((m, i) => `
+      <div class="movie-card" onclick="location.href='detail.html?id=${m.id}'">
+        <div class="movie-poster">
+          <img src="${m.poster}" alt="${m.title}" onerror="this.style.display='none';this.parentElement.innerHTML='🎬'">
+        </div>
+        <div class="movie-info">
+          <div class="movie-rank">#${i+1} 예매율 ${m.bookingRate}%</div>
+          <div class="movie-title">${m.title}</div>
+          <div class="movie-meta">
+            <span>${m.genre}</span>
+            <span>·</span>
+            <span>${m.rating}</span>
+            <span>·</span>
+            <span>${m.runtime}분</span>
+          </div>
+          <div class="booking-rate">${m.bookingRate}% 예매중</div>
+        </div>
+        <a href="booking.html?movieId=${m.id}" class="btn-book" onclick="event.stopPropagation()">예매하기</a>
+      </div>
+    `).join('');
+  }
+
+  function filterMovies(genre, btn) {
+    document.querySelectorAll('.region-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const sorted = [...DB.movies].sort((a,b) => b.bookingRate - a.bookingRate);
+    const filtered = genre === 'all' ? sorted : sorted.filter(m => m.genre === genre || m.genre_tags.includes(genre));
+    renderMovies(filtered);
+  }
+
+  function renderTheaters() {
+    document.getElementById('theaterList').innerHTML = DB.theaters.map(t => `
+      <div class="theater-item" style="flex-direction:column; align-items:flex-start; gap:6px;">
+        <div class="theater-name">${t.name}</div>
+        <div class="theater-region" style="color:var(--text-secondary); font-size:12px;">${t.region} · 상영관 ${t.screenCount}개</div>
+        <div style="font-size:12px; color:var(--text-muted);">${t.transport}</div>
+      </div>
+    `).join('');
+  }
+
+  function openModal(id) {
+    document.getElementById(id).classList.add('open');
+  }
+
+  function closeModal(id) {
+    document.getElementById(id).classList.remove('open');
+  }
+
+  function doLogin() {
+    const email = document.getElementById('loginEmail').value;
+    if (!email) return;
+    currentUser = { id: 1, name: '김민준', email };
+    closeModal('loginModal');
+    document.getElementById('headerActions').innerHTML = `
+      <span style="font-size:14px; color:var(--text-secondary);">안녕하세요, <strong style="color:var(--text-primary);">김민준</strong>님</span>
+      <a href="mypage.html" class="btn-outline">마이페이지</a>
+      <button class="btn-outline" onclick="doLogout()">로그아웃</button>
+    `;
+    showToast('로그인되었습니다.', 'success');
+  }
+
+  function doLogout() {
+    currentUser = null;
+    document.getElementById('headerActions').innerHTML = `
+      <button class="btn-outline" onclick="openModal('loginModal')">로그인</button>
+      <button class="btn-primary" onclick="openModal('loginModal')">회원가입</button>
+    `;
+    showToast('로그아웃되었습니다.');
+  }
+
+  function showToast(msg, type = '') {
+    const t = document.createElement('div');
+    t.className = 'toast' + (type ? ' ' + type : '');
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 3000);
+  }
+
+  // Init
+  const sorted = [...DB.movies].sort((a,b) => b.bookingRate - a.bookingRate);
+  renderMovies(sorted);
+  renderTheaters();
+
+  // Close modal on overlay click
+  document.querySelectorAll('.modal-overlay').forEach(el => {
+    el.addEventListener('click', e => { if (e.target === el) el.classList.remove('open'); });
+  });
+</script>
+</body>
+</html>
