@@ -7,7 +7,7 @@ CineBook 영화 예매 사이트 - 백엔드
 
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
-import sqlite3, os, json, time, bcrypt, urllib.request, urllib.parse
+import sqlite3, os, json, time, bcrypt, urllib.request, urllib.parse, threading
 from dotenv import load_dotenv
 load_dotenv()
 import jwt as pyjwt
@@ -818,6 +818,102 @@ def seed_db(conn):
     print('     테스트 계정: test@cinebook.com / test1234')
 
 
+def ensure_schedules():
+    """모든 상영중 영화에 오늘~14일치 스케줄이 없으면 추가"""
+    conn = get_db()
+    try:
+        movies   = qall(conn, "SELECT movie_id, runtime FROM movie WHERE status='상영중'")
+        theaters = [r['theater_id'] for r in qall(conn, 'SELECT theater_id FROM theater')]
+        today    = datetime.now()
+        dates    = [(today + timedelta(days=i)).strftime('%Y-%m-%d') for i in range(14)]
+        slots    = [('09:00','조조'),('12:00','일반'),('15:00','일반'),('18:30','일반'),('21:00','심야')]
+
+        def calc_end(start, rt):
+            h, m = map(int, start.split(':'))
+            total = h * 60 + m + rt + 20
+            return f"{(total//60)%24:02d}:{total%60:02d}"
+
+        added = 0
+        for mid_row in movies:
+            mid, rt = mid_row['movie_id'], mid_row['runtime'] or 120
+            idx = mid % len(slots)
+            for tid in theaters:
+                for date in dates:
+                    exists = conn.execute(
+                        'SELECT 1 FROM movie_schedule WHERE movie_id=? AND theater_id=? AND screen_date=?',
+                        [mid, tid, date]).fetchone()
+                    if not exists:
+                        s1, slot1 = slots[idx % len(slots)]
+                        s2, slot2 = slots[(idx + 2) % len(slots)]
+                        conn.execute('INSERT INTO movie_schedule (theater_id,movie_id,screen_date,start_time,end_time,time_slot,round,status) VALUES (?,?,?,?,?,?,?,"상영예정")',
+                                     [tid, mid, date, s1, calc_end(s1, rt), slot1, 1])
+                        conn.execute('INSERT INTO movie_schedule (theater_id,movie_id,screen_date,start_time,end_time,time_slot,round,status) VALUES (?,?,?,?,?,?,?,"상영예정")',
+                                     [tid, mid, date, s2, calc_end(s2, rt), slot2, 2])
+                        added += 2
+        conn.commit()
+        if added:
+            print(f'[Schedule] {added}개 스케줄 추가됨')
+    finally:
+        conn.close()
+
+
+def refresh_movies_from_tmdb():
+    """TMDB now_playing으로 영화 목록 갱신 (추가/업데이트/상영종료)"""
+    if not TMDB_API_KEY:
+        return
+    print('[TMDB] 영화 데이터 자동 갱신 시작...')
+    try:
+        new_movies = fetch_now_playing_movies(limit=6)
+        if not new_movies:
+            return
+
+        conn = get_db()
+        existing = {r['original_title']: r['movie_id']
+                    for r in qall(conn, 'SELECT movie_id, original_title FROM movie')}
+        new_titles = {md['original_title'] for md in new_movies}
+
+        for md in new_movies:
+            if md['original_title'] in existing:
+                mid = existing[md['original_title']]
+                conn.execute('''UPDATE movie SET poster=?,still_cut=?,booking_rate=?,
+                                cum_audience=?,content=?,status='상영중' WHERE movie_id=?''',
+                             [md['poster'],md['still_cut'],md['booking_rate'],
+                              md['cum_audience'],md['content'],mid])
+            else:
+                conn.execute('''INSERT INTO movie
+                    (original_title,title,content,summary,rating,screening_rating,booking_rate,
+                     cum_audience,screen_type,genre,runtime,release_date,director,cast,writer,
+                     country,awards,production_company,distributor,status,poster,still_cut)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'상영중',?,?)''',
+                    [md['original_title'],md['title'],md['content'],md['summary'],md['rating'],
+                     md['screening_rating'],md['booking_rate'],md['cum_audience'],md['screen_type'],
+                     md['genre'],md['runtime'],md['release_date'],md['director'],md['cast'],
+                     md['writer'],md['country'],md['awards'],md['production_company'],
+                     md['distributor'],md['poster'],md['still_cut']])
+                print(f'[TMDB] 새 영화 추가: {md["title"]}')
+
+        # now_playing에 없는 영화는 상영종료 처리
+        for orig, mid in existing.items():
+            if orig not in new_titles:
+                conn.execute("UPDATE movie SET status='상영종료' WHERE movie_id=?", [mid])
+                print(f'[TMDB] 상영종료 처리: {orig}')
+
+        conn.commit()
+        conn.close()
+        ensure_schedules()
+        print('[TMDB] 자동 갱신 완료')
+    except Exception as e:
+        print(f'[TMDB] 자동 갱신 실패: {e}')
+
+
+def auto_refresh_worker():
+    """24시간마다 영화 데이터 + 스케줄 자동 갱신"""
+    while True:
+        time.sleep(24 * 60 * 60)
+        refresh_movies_from_tmdb()
+        ensure_schedules()
+
+
 def fetch_tmdb_posters():
     if not TMDB_API_KEY:
         print('[TMDB] API 키 없음 - 포스터 업데이트 건너뜀')
@@ -859,5 +955,10 @@ if __name__ == '__main__':
     print('[CineBook] 서버 시작 중...')
     init_db()
     fetch_tmdb_posters()
+    ensure_schedules()
+    if TMDB_API_KEY:
+        t = threading.Thread(target=auto_refresh_worker, daemon=True)
+        t.start()
+        print('[TMDB] 24시간 자동 갱신 활성화')
     print('[CineBook] http://127.0.0.1:3000 에서 접속하세요')
     app.run(host='0.0.0.0', port=3000, debug=False)
