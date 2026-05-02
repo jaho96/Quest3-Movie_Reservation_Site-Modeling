@@ -19,6 +19,84 @@ app = Flask(__name__, static_folder='public', static_url_path='')
 TMDB_API_KEY   = os.environ.get('TMDB_API_KEY', '')
 TMDB_IMG_W500  = 'https://image.tmdb.org/t/p/w500'
 TMDB_IMG_W1280 = 'https://image.tmdb.org/t/p/w1280'
+
+TMDB_GENRE_MAP = {
+    28:'액션', 12:'모험', 16:'애니메이션', 35:'코미디', 80:'범죄',
+    99:'다큐멘터리', 18:'드라마', 10751:'가족', 14:'판타지', 36:'역사',
+    27:'공포', 10402:'음악', 9648:'미스터리', 10749:'로맨스', 878:'SF',
+    53:'스릴러', 10752:'전쟁', 37:'서부',
+}
+
+GENRE_GRADIENT = {
+    '액션':   'linear-gradient(160deg,#0d1b4b,#b71c1c)',
+    '공포':   'linear-gradient(160deg,#0a0a0a,#4a7c4a)',
+    'SF':     'linear-gradient(160deg,#3e1f00,#c9a84c)',
+    '애니메이션':'linear-gradient(160deg,#1565c0,#e53935)',
+    '뮤지컬': 'linear-gradient(160deg,#1a003e,#e91e8c)',
+    '드라마':  'linear-gradient(160deg,#1a237e,#4fc3f7)',
+    '로맨스':  'linear-gradient(160deg,#880e4f,#f06292)',
+    '스릴러':  'linear-gradient(160deg,#1b1b2f,#e94560)',
+}
+
+
+def tmdb_get(path):
+    sep = '&' if '?' in path else '?'
+    url = f"https://api.themoviedb.org/3{path}{sep}api_key={TMDB_API_KEY}&language=ko-KR"
+    with urllib.request.urlopen(url, timeout=8) as resp:
+        return json.loads(resp.read())
+
+
+def fetch_now_playing_movies(limit=6):
+    """TMDB 현재 한국 상영작 상위 N편 반환"""
+    data     = tmdb_get('/movie/now_playing?region=KR')
+    results  = sorted(data.get('results', []), key=lambda x: x['popularity'], reverse=True)[:limit * 2]
+    movies   = []
+    for m in results:
+        if len(movies) >= limit:
+            break
+        if not m.get('poster_path'):
+            continue
+        try:
+            detail  = tmdb_get(f"/movie/{m['id']}")
+            credits = tmdb_get(f"/movie/{m['id']}/credits")
+
+            genres  = [TMDB_GENRE_MAP.get(g['id'], g['name']) for g in detail.get('genres', [])]
+            genre   = genres[0] if genres else '드라마'
+            cast    = ', '.join(c['name'] for c in credits.get('cast', [])[:4])
+            director= next((c['name'] for c in credits.get('crew', []) if c['job'] == 'Director'), '-')
+            prods   = [c['name'] for c in detail.get('production_companies', [])[:2]]
+            countries = [c['iso_3166_1'] for c in detail.get('production_countries', [])]
+            country = '한국' if 'KR' in countries else (detail.get('production_countries') or [{}])[0].get('name', '-')
+            runtime = detail.get('runtime') or 120
+            booking_rate = round(min(m['popularity'] / 5, 49.9), 1)
+
+            movies.append({
+                'original_title':     m['original_title'],
+                'title':              m['title'],
+                'content':            detail.get('overview') or m.get('overview', ''),
+                'summary':            (m.get('overview') or '')[:80],
+                'rating':             '15세' if detail.get('adult') else '전체관람가',
+                'screening_rating':   '없음',
+                'booking_rate':       booking_rate,
+                'cum_audience':       m.get('vote_count', 0) * 500,
+                'screen_type':        '2D',
+                'genre':              genre,
+                'runtime':            runtime,
+                'release_date':       m.get('release_date', ''),
+                'director':           director,
+                'cast':               cast,
+                'writer':             '-',
+                'country':            country,
+                'awards':             '',
+                'production_company': ', '.join(prods),
+                'distributor':        '-',
+                'poster':             TMDB_IMG_W500  + m['poster_path'],
+                'still_cut':          TMDB_IMG_W1280 + m['backdrop_path'] if m.get('backdrop_path') else '',
+            })
+            print(f"[TMDB] {m['title']} 로드 완료")
+        except Exception as e:
+            print(f"[TMDB] {m.get('title')} 실패: {e}")
+    return movies
 CORS(app)
 
 SECRET_KEY = 'cinebook_secret_2026'
@@ -650,28 +728,36 @@ def seed_db(conn):
     a4 = addr('41940','중구','2층','대구 중구 중앙대로 407','대구 중구 동성로 2-3')
     a5 = addr('21577','부평구','5층','인천 부평구 부평대로 33','인천 부평구 부평동 555')
 
-    def movie(orig, title, content, summary, rating, scr_rating, book_rate, cum_aud,
-              scr_type, genre, runtime, release, director, cast_, writer, country, awards, prod, dist, poster=''):
-        return conn.execute('''INSERT INTO movie
+    # ── 영화: TMDB 현재 상영작 or 폴백 ──────────────────
+    tmdb_movies = []
+    if TMDB_API_KEY:
+        print('[TMDB] 현재 상영 중인 영화 가져오는 중...')
+        tmdb_movies = fetch_now_playing_movies(limit=6)
+
+    if not tmdb_movies:
+        print('[TMDB] API 키 없음 또는 실패 - 기본 영화 데이터 사용')
+        tmdb_movies = [
+            {'original_title':'Veteran 2','title':'베테랑 2','content':'광역수사대 형사 서도철이 또다시 거대한 악과 맞닥뜨린다.','summary':'정의로운 형사의 두 번째 이야기','rating':'15세','screening_rating':'폭력성','booking_rate':32.5,'cum_audience':7630000,'screen_type':'2D','genre':'액션','runtime':109,'release_date':'2024-09-13','director':'류승완','cast':'황정민, 정해인, 오달수','writer':'류승완','country':'한국','awards':'2024 청룡영화상 최우수작품상','production_company':'외유내강','distributor':'CJ ENM','poster':'linear-gradient(160deg,#0d1b4b,#b71c1c)','still_cut':''},
+            {'original_title':'Inside Out 2','title':'인사이드 아웃 2','content':'라일리의 새로운 감정들이 등장하면서 벌어지는 이야기.','summary':'새로운 감정 불안과 함께하는 성장 이야기','rating':'전체관람가','screening_rating':'없음','booking_rate':18.2,'cum_audience':5900000,'screen_type':'2D/3D','genre':'애니메이션','runtime':100,'release_date':'2024-06-12','director':'Kelsey Mann','cast':'에이미 포얼러, 마야 호크','writer':'Dave Holstein','country':'미국','awards':'','production_company':'픽사','distributor':'월트디즈니','poster':'linear-gradient(160deg,#1565c0,#e53935)','still_cut':''},
+            {'original_title':'Exhuma','title':'파묘','content':'거액의 의뢰를 받은 무당과 장의사가 수상한 묫자리를 이장하면서 벌어지는 이야기.','summary':'이장 작업에서 시작된 기이한 사건들','rating':'15세','screening_rating':'공포','booking_rate':8.1,'cum_audience':11920000,'screen_type':'2D','genre':'공포','runtime':134,'release_date':'2024-02-22','director':'장재현','cast':'최민식, 유해진, 김고은, 이도현','writer':'장재현','country':'한국','awards':'2024 대종상 최우수작품상','production_company':'쇼박스','distributor':'쇼박스','poster':'linear-gradient(160deg,#0a0a0a,#4a7c4a)','still_cut':''},
+            {'original_title':'Dune: Part Two','title':'듄: 파트 2','content':'폴 아트레이데스는 프레멘의 예언자로 거듭나 황제에게 복수를 시작한다.','summary':'폴의 복수와 예언자로서의 여정','rating':'12세','screening_rating':'없음','booking_rate':12.3,'cum_audience':4200000,'screen_type':'2D/3D/IMAX','genre':'SF','runtime':165,'release_date':'2024-02-28','director':'드니 빌뇌브','cast':'티모시 샬라메, 젠데이아','writer':'드니 빌뇌브','country':'미국','awards':'2024 아카데미 최우수촬영상','production_company':'레전더리','distributor':'워너브라더스','poster':'linear-gradient(160deg,#3e1f00,#c9a84c)','still_cut':''},
+            {'original_title':'Hijack 1971','title':'하이재킹','content':'1971년 실화 기반 항공기 납치 사건.','summary':'1971년 실화 기반 납치 사건','rating':'15세','screening_rating':'폭력성','booking_rate':15.7,'cum_audience':3100000,'screen_type':'2D','genre':'액션','runtime':100,'release_date':'2024-06-21','director':'류승완','cast':'하정우, 여진구, 성동일','writer':'류승완','country':'한국','awards':'','production_company':'외유내강','distributor':'CJ ENM','poster':'linear-gradient(160deg,#0d2137,#4a90d9)','still_cut':''},
+            {'original_title':'Wicked','title':'위키드','content':'오즈의 마법사 이전 이야기. 두 마녀의 우정과 갈등.','summary':'두 마녀의 우정과 갈등','rating':'전체관람가','screening_rating':'없음','booking_rate':22.4,'cum_audience':890000,'screen_type':'2D','genre':'뮤지컬','runtime':160,'release_date':'2024-11-22','director':'존 M. 추','cast':'신시아 에리보, 아리아나 그란데','writer':'위닌 홀즈만','country':'미국','awards':'','production_company':'유니버설','distributor':'유니버설','poster':'linear-gradient(160deg,#1a003e,#e91e8c)','still_cut':''},
+        ]
+
+    movie_ids = []
+    for md in tmdb_movies:
+        mid = conn.execute('''INSERT INTO movie
             (original_title,title,content,summary,rating,screening_rating,booking_rate,cum_audience,
              screen_type,genre,runtime,release_date,director,cast,writer,country,awards,
-             production_company,distributor,status,poster)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,"상영중",?)''',
-            [orig,title,content,summary,rating,scr_rating,book_rate,cum_aud,
-             scr_type,genre,runtime,release,director,cast_,writer,country,awards,prod,dist,poster]).lastrowid
-
-    m1 = movie('Veteran 2','베테랑 2','광역수사대 형사 서도철이 또다시 거대한 악과 맞닥뜨린다.','정의로운 형사의 두 번째 이야기','15세','폭력성',32.5,7630000,'2D','액션',109,'2024-09-13','류승완','황정민, 정해인, 오달수','류승완','한국','2024 청룡영화상 최우수작품상','외유내강','CJ ENM',
-              poster='linear-gradient(160deg,#0d1b4b 0%,#1a3a7a 50%,#b71c1c 100%)')
-    m2 = movie('Inside Out 2','인사이드 아웃 2','라일리의 새로운 감정들이 등장하면서 벌어지는 이야기.','새로운 감정 불안과 함께하는 라일리의 성장 이야기','전체관람가','없음',18.2,5900000,'2D/3D','애니메이션',100,'2024-06-12','Kelsey Mann','에이미 포얼러, 마야 호크','Dave Holstein','미국','','픽사','월트디즈니',
-              poster='linear-gradient(160deg,#1565c0 0%,#f57f17 60%,#e53935 100%)')
-    m3 = movie('Exhuma','파묘','거액의 의뢰를 받은 무당과 장의사가 수상한 묫자리를 이장하면서 벌어지는 이야기.','이장 작업에서 시작된 기이한 사건들','15세','공포',8.1,11920000,'2D','공포',134,'2024-02-22','장재현','최민식, 유해진, 김고은, 이도현','장재현','한국','2024 대종상 최우수작품상','쇼박스','쇼박스',
-              poster='linear-gradient(160deg,#0a0a0a 0%,#1b3a1b 50%,#4a7c4a 100%)')
-    m4 = movie('Dune: Part Two','듄: 파트 2','폴 아트레이데스는 프레멘의 예언자로 거듭나 황제에게 복수를 시작한다.','폴의 복수와 예언자로서의 여정','12세','없음',12.3,4200000,'2D/3D/IMAX','SF',165,'2024-02-28','드니 빌뇌브','티모시 샬라메, 젠데이아, 오스틴 버틀러','드니 빌뇌브','미국','2024 아카데미 최우수촬영상','레전더리','워너브라더스',
-              poster='linear-gradient(160deg,#3e1f00 0%,#8b5e1a 50%,#c9a84c 100%)')
-    m5 = movie('Hijack 1971','하이재킹','1971년 실화 기반 항공기 납치 사건.','1971년 실화 기반 항공기 납치 사건','15세','폭력성',15.7,3100000,'2D','액션',100,'2024-06-21','류승완','하정우, 여진구, 성동일','류승완','한국','','외유내강','CJ ENM',
-              poster='linear-gradient(160deg,#0d2137 0%,#1e4976 50%,#4a90d9 100%)')
-    m6 = movie('Wicked','위키드','오즈의 마법사 이전 이야기. 두 마녀의 우정과 갈등.','오즈의 마법사 세계관 속 두 마녀의 우정','전체관람가','없음',22.4,890000,'2D','뮤지컬',160,'2024-11-22','존 M. 추','신시아 에리보, 아리아나 그란데','위닌 홀즈만','미국','','유니버설','유니버설',
-              poster='linear-gradient(160deg,#1a003e 0%,#6a0dad 50%,#e91e8c 100%)')
+             production_company,distributor,status,poster,still_cut)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,"상영중",?,?)''',
+            [md['original_title'],md['title'],md['content'],md['summary'],md['rating'],
+             md['screening_rating'],md['booking_rate'],md['cum_audience'],md['screen_type'],
+             md['genre'],md['runtime'],md['release_date'],md['director'],md['cast'],
+             md['writer'],md['country'],md['awards'],md['production_company'],
+             md['distributor'],md['poster'],md['still_cut']]).lastrowid
+        movie_ids.append((mid, md['runtime']))
 
     def theater(addr_id, region, name, info, transport, parking, manager, phone, screen_cnt):
         return conn.execute('INSERT INTO theater (address_id,region,name,info,transport,parking,manager,manager_phone,status,screen_count) VALUES (?,?,?,?,?,?,?,?,"운영중",?)',
@@ -705,29 +791,24 @@ def seed_db(conn):
         conn.execute('INSERT INTO movie_schedule (theater_id,movie_id,screen_date,start_time,end_time,time_slot,round,status) VALUES (?,?,?,?,?,?,?,"상영예정")',
                      [t_id,m_id,date,start,end,slot,rnd])
 
-    movies_runtimes = {m1:109, m2:100, m3:134, m4:165, m5:100, m6:160}
-
-    def end(start, runtime):
+    def calc_end(start, runtime):
         h, m = map(int, start.split(':'))
-        total = h * 60 + m + runtime + 20  # 상영시간 + 광고
+        total = h * 60 + m + runtime + 20
         return f"{(total//60)%24:02d}:{total%60:02d}"
 
-    # 모든 영화를 모든 극장에서 상영
-    all_movies = [m1,m2,m3,m4,m5,m6]
-    all_theaters = [t1,t2,t3,t4,t5]
-    time_slots = [('09:00','조조'),('12:00','일반'),('15:00','일반'),('18:30','일반'),('21:00','심야')]
+    all_theaters = [t1, t2, t3, t4, t5]
+    time_slots   = [('09:00','조조'),('12:00','일반'),('15:00','일반'),('18:30','일반'),('21:00','심야')]
+    today        = datetime.now()
+    dates        = [(today.replace(hour=0,minute=0,second=0,microsecond=0) +
+                     timedelta(days=i)).strftime('%Y-%m-%d') for i in range(14)]
 
-    for date in ['2026-05-01','2026-05-02','2026-05-03','2026-05-04','2026-05-05','2026-05-06','2026-05-07']:
+    for date in dates:
         for theater in all_theaters:
-            for idx, movie in enumerate(all_movies):
-                rt = movies_runtimes[movie]
-                # 각 영화를 극장당 2회 상영 (시간대 분산)
-                start1 = time_slots[idx % len(time_slots)][0]
-                slot1  = time_slots[idx % len(time_slots)][1]
-                start2 = time_slots[(idx + 2) % len(time_slots)][0]
-                slot2  = time_slots[(idx + 2) % len(time_slots)][1]
-                sch(theater, movie, date, start1, end(start1, rt), slot1, 1)
-                sch(theater, movie, date, start2, end(start2, rt), slot2, 2)
+            for idx, (mid, rt) in enumerate(movie_ids):
+                s1, slot1 = time_slots[idx % len(time_slots)]
+                s2, slot2 = time_slots[(idx + 2) % len(time_slots)]
+                sch(theater, mid, date, s1, calc_end(s1, rt), slot1, 1)
+                sch(theater, mid, date, s2, calc_end(s2, rt), slot2, 2)
 
     hashed = bcrypt.hashpw('test1234'.encode(), bcrypt.gensalt()).decode()
     conn.execute("INSERT INTO customer (name,email,password,phone,birth_date,customer_type,status) VALUES ('김민준','test@cinebook.com',?,?,?,'회원','정상')",
@@ -742,7 +823,7 @@ def fetch_tmdb_posters():
         print('[TMDB] API 키 없음 - 포스터 업데이트 건너뜀')
         return
     conn = get_db()
-    movies = qall(conn, "SELECT movie_id, title, original_title, release_date FROM movie")
+    movies = qall(conn, "SELECT movie_id, title, original_title, release_date FROM movie WHERE poster NOT LIKE 'http%' OR poster IS NULL OR poster = ''")
     updated = 0
     for m in movies:
         try:
