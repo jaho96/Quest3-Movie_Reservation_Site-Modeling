@@ -7,12 +7,18 @@ CineBook 영화 예매 사이트 - 백엔드
 
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
-import sqlite3, os, json, time, bcrypt
+import sqlite3, os, json, time, bcrypt, urllib.request, urllib.parse
+from dotenv import load_dotenv
+load_dotenv()
 import jwt as pyjwt
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 
 app = Flask(__name__, static_folder='public', static_url_path='')
+
+TMDB_API_KEY   = os.environ.get('TMDB_API_KEY', '')
+TMDB_IMG_W500  = 'https://image.tmdb.org/t/p/w500'
+TMDB_IMG_W1280 = 'https://image.tmdb.org/t/p/w1280'
 CORS(app)
 
 SECRET_KEY = 'cinebook_secret_2026'
@@ -731,8 +737,46 @@ def seed_db(conn):
     print('     테스트 계정: test@cinebook.com / test1234')
 
 
+def fetch_tmdb_posters():
+    if not TMDB_API_KEY:
+        print('[TMDB] API 키 없음 - 포스터 업데이트 건너뜀')
+        return
+    conn = get_db()
+    movies = qall(conn, "SELECT movie_id, title, original_title, release_date FROM movie")
+    updated = 0
+    for m in movies:
+        try:
+            query = urllib.parse.quote(m['original_title'] or m['title'])
+            year  = (m['release_date'] or '')[:4]
+            url   = (f"https://api.themoviedb.org/3/search/movie"
+                     f"?api_key={TMDB_API_KEY}&query={query}&language=ko-KR&year={year}")
+            with urllib.request.urlopen(url, timeout=5) as resp:
+                results = json.loads(resp.read()).get('results', [])
+            if not results:
+                # 연도 없이 재시도
+                url2 = (f"https://api.themoviedb.org/3/search/movie"
+                        f"?api_key={TMDB_API_KEY}&query={query}&language=ko-KR")
+                with urllib.request.urlopen(url2, timeout=5) as resp:
+                    results = json.loads(resp.read()).get('results', [])
+            if results:
+                r        = results[0]
+                poster   = TMDB_IMG_W500  + r['poster_path']   if r.get('poster_path')   else None
+                backdrop = TMDB_IMG_W1280 + r['backdrop_path'] if r.get('backdrop_path') else None
+                if poster:
+                    conn.execute("UPDATE movie SET poster=?, still_cut=? WHERE movie_id=?",
+                                 [poster, backdrop, m['movie_id']])
+                    updated += 1
+                    print(f"[TMDB] {m['title']} 포스터 업데이트 완료")
+        except Exception as e:
+            print(f"[TMDB] {m['title']} 실패: {e}")
+    conn.commit()
+    conn.close()
+    print(f'[TMDB] 총 {updated}개 영화 포스터 업데이트 완료')
+
+
 if __name__ == '__main__':
     print('[CineBook] 서버 시작 중...')
     init_db()
+    fetch_tmdb_posters()
     print('[CineBook] http://127.0.0.1:3000 에서 접속하세요')
     app.run(host='0.0.0.0', port=3000, debug=False)

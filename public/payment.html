@@ -240,9 +240,9 @@
 
       // 2. 결제 생성
       await api.payments.create({
-        reservation_id:  reservationId,
-        payment_method:  selectedMethod,
-        amount:          params.total,
+        reservation_id: reservationId,
+        pay_method:     selectedMethod,
+        amount:         params.total,
       });
 
       // 성공 모달

@@ -186,7 +186,10 @@
       document.getElementById('movieSelectGrid').innerHTML = movies.map(m => `
         <div class="movie-select-item" data-id="${m.movie_id}" onclick="selectMovie(${m.movie_id},this)"
           style="border:2px solid var(--border);border-radius:8px;overflow:hidden;cursor:pointer;transition:all 0.2s;">
-          <div style="height:100px;background:${m.poster && !m.poster.startsWith('http') ? m.poster : 'var(--bg-surface)'};display:flex;align-items:center;justify-content:center;font-size:${m.poster && !m.poster.startsWith('http') ? '0' : '28px'};">🎬</div>
+          ${m.poster && m.poster.startsWith('http')
+            ? `<img src="${m.poster}" style="width:100%;height:100px;object-fit:cover;display:block;">`
+            : `<div style="height:100px;background:${m.poster||'var(--bg-surface)'};"></div>`
+          }
           <div style="padding:8px;font-size:12px;font-weight:600;text-align:center;">${m.title}</div>
         </div>`).join('');
     } catch(e) {
